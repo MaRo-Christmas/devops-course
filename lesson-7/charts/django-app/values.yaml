@@ -1,0 +1,39 @@
+replicaCount: 2
+
+image:
+  repository: ""   # e.g. 123456789012.dkr.ecr.eu-central-1.amazonaws.com/django-app
+  tag: "v1"
+  pullPolicy: IfNotPresent
+
+service:
+  type: LoadBalancer
+  port: 80
+  targetPort: 8000
+
+config:
+  # Move your env from HW-4 here (ConfigMap)
+  DJANGO_DEBUG: "False"
+  DJANGO_ALLOWED_HOSTS: "*"
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "256Mi"
+  limits:
+    cpu: "500m"
+    memory: "512Mi"
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+
+ingress:
+  enabled: false
+  className: nginx
+  host: yourdomain.com
+  path: /
+  pathType: Prefix
+  tls: true
+  clusterIssuer: letsencrypt-prod
