@@ -1,75 +1,136 @@
-# Lesson 7 - EKS + ECR + Helm (Django)
+# Lesson 7 — EKS + ECR + Helm (Django)
 
-This folder creates:
-- ECR repo for your Django image
-- EKS cluster in the **existing VPC** created in lesson-5 (reused via terraform_remote_state)
-- Helm chart to deploy Django with ConfigMap + Service (LoadBalancer) + HPA
+У цьому проекті розгортається Kubernetes-кластер в AWS (EKS) у **вже існуючій VPC** з lesson-5, створюється ECR-репозиторій для Docker-образу та деплоїться Django застосунок через Helm.
 
-## 1) Terraform: create ECR + EKS
+## Що створюється
+
+- **ECR репозиторій** для Docker-образу Django
+- **EKS кластер** у VPC з lesson-5 (підтягуємо мережу через `terraform_remote_state`)
+- **Node Group** (керований) для воркер-нод
+- **Helm chart** для деплою Django:
+  - ConfigMap з env змінними
+  - Service типу LoadBalancer
+  - HPA (HorizontalPodAutoscaler) для масштабування за CPU
+- (Опційно) **metrics-server** для роботи HPA
+
+---
+
+## 1) Terraform: створити ECR + EKS
+
 ```bash
 cd lesson-7
-terraform init
+terraform init -reconfigure
 terraform plan
 terraform apply
 ```
 
-## 2) Configure kubectl for EKS
+Перевір, що ноди піднялись:
 ```bash
-aws eks update-kubeconfig --region eu-central-1 --name $(terraform output -raw eks_cluster_name)
+aws eks update-kubeconfig --region eu-central-1 --name lesson-7-eks
 kubectl get nodes
 ```
 
-## 3) Build & push Django image to ECR
-Get repo url:
+---
+
+## 2) Docker: збірка та пуш образу в ECR
+
+Логін в ECR:
 ```bash
-ECR_URL=$(terraform output -raw ecr_repository_url)
-echo $ECR_URL
+aws ecr get-login-password --region eu-central-1 | docker login --username AWS --password-stdin 209578578085.dkr.ecr.eu-central-1.amazonaws.com
 ```
 
-Login:
-```bash
-aws ecr get-login-password --region eu-central-1 | docker login --username AWS --password-stdin ${ECR_URL%/*}
-```
-
-Build, tag, push:
+Збірка (приклад з тегом `v1`):
 ```bash
 docker build -t django-app:v1 .
-docker tag django-app:v1 $ECR_URL:v1
-docker push $ECR_URL:v1
 ```
 
-## 4) Deploy with Helm
-Edit `charts/django-app/values.yaml` and set:
-- image.repository = your ECR url (without tag)
-- image.tag = v1
-- config.* = env vars from HW-4
-
-Install:
+Тег + пуш у ECR:
 ```bash
-helm lint charts/django-app
-helm install myapp charts/django-app
+docker tag django-app:v1 209578578085.dkr.ecr.eu-central-1.amazonaws.com/django-app:v1
+docker push 209578578085.dkr.ecr.eu-central-1.amazonaws.com/django-app:v1
 ```
 
-Check:
+Перевір, що тег зʼявився:
 ```bash
-kubectl get deploy,po,svc,hpa
-kubectl get svc
+aws ecr describe-images --region eu-central-1 --repository-name django-app --query "imageDetails[].imageTags" --output json
 ```
 
-## Notes
-- HPA needs metrics-server. If HPA shows missing metrics, install it:
+---
+
+## 3) Helm: деплой Django в кластер
+
+Чарт знаходиться тут:
+- `charts/django-app`
+
+### Варіант A (рекомендований): передати образ через `--set`
+
+```bash
+helm lint .\charts\django-app
+helm upgrade --install django-app .\charts\django-app --namespace django --create-namespace ^
+  --set image.repository="209578578085.dkr.ecr.eu-central-1.amazonaws.com/django-app" ^
+  --set image.tag="v1"
+```
+
+Перевір:
+```bash
+kubectl get pods -n django
+kubectl get svc -n django
+kubectl describe svc -n django django-app
+```
+
+### Варіант B: прописати образ у `values.yaml`
+
+У `charts/django-app/values.yaml`:
+- `image.repository`
+- `image.tag`
+
+Після цього:
+```bash
+helm upgrade --install django-app .\charts\django-app --namespace django --create-namespace
+```
+
+---
+
+## 4) HPA та metrics-server
+
+HPA потребує metrics API. Якщо `kubectl describe hpa` показує помилки типу `pods.metrics.k8s.io not found`, встанови metrics-server:
+
 ```bash
 kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
 ```
 
-### Bonus: Ingress + TLS
-Enable in values.yaml:
-```yaml
-ingress:
-  enabled: true
-  className: nginx
-  host: yourdomain.com
-  tls: true
-  clusterIssuer: letsencrypt-prod
+Перевір:
+```bash
+kubectl get pods -n kube-system | findstr /I metrics
+kubectl top nodes
+kubectl top pods -n django
+kubectl get hpa -n django
+kubectl describe hpa -n django django-app
 ```
-You also need ingress controller + cert-manager installed in the cluster.
+
+---
+
+## Перевірка результату
+
+1) Под(и) працюють:
+```bash
+kubectl get pods -n django -o wide
+```
+
+2) Service має External endpoint (LoadBalancer):
+```bash
+kubectl get svc -n django
+```
+
+3) HPA активний і бачить метрики:
+```bash
+kubectl get hpa -n django
+kubectl describe hpa -n django django-app
+```
+
+---
+
+## Нотатки
+
+- VPC та підмережі беруться з lesson-5. Для EKS воркери повинні бути у приватних підмережах з виходом через NAT, інакше ноди можуть “не приєднатися до кластера”.
+- Якщо `helm upgrade` падає через конфлікти/невідповідність labels або `containers: Required value`, перевір `templates/deployment.yaml` (labels + selector мають збігатися, і контейнер не може бути порожнім).

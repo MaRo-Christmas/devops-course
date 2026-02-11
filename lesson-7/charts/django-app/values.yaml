@@ -1,7 +1,7 @@
-replicaCount: 2
+git rm -r lesson-7/terraform.tfvars.examplereplicaCount: 2
 
 image:
-  repository: ""   # e.g. 123456789012.dkr.ecr.eu-central-1.amazonaws.com/django-app
+  repository: "209578578085.dkr.ecr.eu-central-1.amazonaws.com/django-app"
   tag: "v1"
   pullPolicy: IfNotPresent
 
@@ -23,9 +23,11 @@ resources:
     cpu: "500m"
     memory: "512Mi"
 
+replicaCount: 1
+
 autoscaling:
   enabled: true
-  minReplicas: 2
+  minReplicas: 1
   maxReplicas: 6
   targetCPUUtilizationPercentage: 70
 
