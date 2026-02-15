@@ -36,33 +36,27 @@ spec:
   }
 
   environment {
-    AWS_REGION    = "eu-central-1"
+    AWS_REGION   = "eu-central-1"
 
-    // ВАЖЛИВО: registry окремо від repo
-    ECR_REGISTRY  = "209578578085.dkr.ecr.eu-central-1.amazonaws.com"
-    ECR_REPO      = "209578578085.dkr.ecr.eu-central-1.amazonaws.com/django-app"
+    ECR_REGISTRY = "209578578085.dkr.ecr.eu-central-1.amazonaws.com"
+    ECR_REPO     = "209578578085.dkr.ecr.eu-central-1.amazonaws.com/django-app"
 
-    HELM_REPO     = "https://github.com/MaRo-Christmas/lesson-8-9-helm.git"
-    HELM_FILE     = "charts/values.yaml"
+    HELM_REPO    = "https://github.com/MaRo-Christmas/lesson-8-9-helm.git"
+    HELM_FILE    = "charts/values.yaml"
 
-    // щоб post не падав, якщо щось абортнули
-    IMAGE_TAG     = "unknown"
-    SHORT_SHA     = "unknown"
+    // дефолти, щоб post не сипався
+    IMAGE_TAG    = "unknown"
+    SHORT_SHA    = "unknown"
   }
 
   stages {
     stage('Checkout app repo') {
       steps {
         checkout scm
-        container('tools') {
-          sh '''
-            set -e
-            git --version || true
-          '''
-        }
         script {
           env.SHORT_SHA = sh(script: "git rev-parse --short=8 HEAD", returnStdout: true).trim()
           env.IMAGE_TAG = "build-${env.BUILD_NUMBER}-${env.SHORT_SHA}"
+          echo "Computed IMAGE_TAG=${env.IMAGE_TAG}"
         }
       }
     }
@@ -73,7 +67,6 @@ spec:
           withCredentials([usernamePassword(credentialsId: 'aws-creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
             sh '''
               set -e
-
               PASS="$(aws ecr get-login-password --region ${AWS_REGION})"
               AUTH="$(printf "AWS:%s" "$PASS" | base64 | tr -d '\\n')"
 
@@ -97,12 +90,12 @@ EOF
         container('kaniko') {
           sh '''
             set -e
+            echo "Pushing image: ${ECR_REPO}:${IMAGE_TAG}"
 
             /kaniko/executor \
               --context "${WORKSPACE}/lesson-8-9" \
               --dockerfile "${WORKSPACE}/lesson-8-9/Dockerfile" \
-              --destination "${ECR_REPO}:${IMAGE_TAG}" \
-              --cache=true
+              --destination "${ECR_REPO}:${IMAGE_TAG}"
           '''
         }
       }
@@ -111,17 +104,17 @@ EOF
     stage('Update Helm repo values.yaml (image.tag)') {
       steps {
         container('tools') {
-          withCredentials([usernamePassword(credentialsId: 'github-token', usernameVariable: 'GITHUB_USER', passwordVariable: 'GITHUB_TOKEN')]) {
+          // github-token тут = Secret text (PAT)
+          withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
             sh '''
               set -e
-              apk add --no-cache git ca-certificates openssh-client
+              apk add --no-cache git ca-certificates
 
               rm -rf helm-repo
-              git clone "https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/MaRo-Christmas/lesson-8-9-helm.git" helm-repo
+              git clone "https://MaRo-Christmas:${GITHUB_TOKEN}@github.com/MaRo-Christmas/lesson-8-9-helm.git" helm-repo
               cd helm-repo
 
               echo "Updating ${HELM_FILE} -> image.tag=${IMAGE_TAG}"
-              # Міняємо тільки рядок "  tag: ..."
               sed -i "s/^  tag:.*$/  tag: \\"${IMAGE_TAG}\\"/" "${HELM_FILE}"
 
               git config user.email "jenkins@local"
