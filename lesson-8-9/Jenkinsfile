@@ -64,7 +64,7 @@ spec:
     stage('Login to ECR (prepare docker config for Kaniko)') {
       steps {
         container('awscli') {
-          withCredentials([usernamePassword(credentialsId: 'aws-creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+          withCredentials([usernamePassword(credentialsId: 'aws-creds-ecr', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
             sh '''
               set -e
               PASS="$(aws ecr get-login-password --region ${AWS_REGION})"
@@ -104,8 +104,7 @@ EOF
     stage('Update Helm repo values.yaml (image.tag)') {
       steps {
         container('tools') {
-          // github-token тут = Secret text (PAT)
-          withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
+          withCredentials([string(credentialsId: 'github-pat-helm', variable: 'GITHUB_TOKEN')]) {
             sh '''
               set -e
               apk add --no-cache git ca-certificates
