@@ -57,17 +57,10 @@ spec:
         checkout scm
 
         script {
-          // Jenkins зазвичай сам ставить GIT_COMMIT після checkout
-          env.SHORT_SHA = (env.GIT_COMMIT ?: "unknown").take(8)
-
-          // якщо раптом GIT_COMMIT не виставився (рідко), пробуємо git-командою
-          if (env.SHORT_SHA == "unknown") {
-            env.SHORT_SHA = sh(script: "git rev-parse --short=8 HEAD", returnStdout: true).trim()
-          }
-
-          env.IMAGE_TAG = "build-${env.BUILD_NUMBER}-${env.SHORT_SHA}"
-          echo "GIT_COMMIT=${env.GIT_COMMIT}"
-          echo "Computed IMAGE_TAG=${env.IMAGE_TAG}"
+  env.SHORT_SHA = (env.GIT_COMMIT ?: "unknown").take(8)
+  env.IMAGE_TAG = "build-${env.BUILD_NUMBER}-${env.SHORT_SHA}"
+  echo "GIT_COMMIT=${env.GIT_COMMIT}"
+  echo "Computed IMAGE_TAG=${env.IMAGE_TAG}"
         }
       }
     }
