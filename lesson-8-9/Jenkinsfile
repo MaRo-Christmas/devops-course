@@ -64,7 +64,11 @@ spec:
     stage('Login to ECR (prepare docker config for Kaniko)') {
       steps {
         container('awscli') {
-          withCredentials([usernamePassword(credentialsId: 'aws-creds-ecr', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+          withCredentials([usernamePassword(
+            credentialsId: 'aws-creds-ecr',
+            usernameVariable: 'AWS_ACCESS_KEY_ID',
+            passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+          )]) {
             sh '''
               set -e
               PASS="$(aws ecr get-login-password --region ${AWS_REGION})"
@@ -104,13 +108,21 @@ EOF
     stage('Update Helm repo values.yaml (image.tag)') {
       steps {
         container('tools') {
-          withCredentials([string(credentialsId: 'github-pat-helm', variable: 'GITHUB_TOKEN')]) {
+
+          // github-pat-helm = Username/Password (username: GitHub login, password: PAT)
+          withCredentials([usernamePassword(
+            credentialsId: 'github-pat-helm',
+            usernameVariable: 'GITHUB_USER',
+            passwordVariable: 'GITHUB_TOKEN'
+          )]) {
             sh '''
               set -e
               apk add --no-cache git ca-certificates
 
               rm -rf helm-repo
-              git clone "https://MaRo-Christmas:${GITHUB_TOKEN}@github.com/MaRo-Christmas/lesson-8-9-helm.git" helm-repo
+
+              # ВАЖЛИВО: використовуємо username з креденшалів, а не хардкод
+              git clone "https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/MaRo-Christmas/lesson-8-9-helm.git" helm-repo
               cd helm-repo
 
               echo "Updating ${HELM_FILE} -> image.tag=${IMAGE_TAG}"
