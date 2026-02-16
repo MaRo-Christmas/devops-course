@@ -20,6 +20,7 @@ spec:
       volumeMounts:
         - name: docker-config
           mountPath: /kaniko/.docker
+
     - name: kaniko
       image: gcr.io/kaniko-project/executor:debug
       command: ['sh', '-c', 'cat']
@@ -27,6 +28,7 @@ spec:
       volumeMounts:
         - name: docker-config
           mountPath: /kaniko/.docker
+
     - name: tools
       image: alpine:3.19
       command: ['sh', '-c', 'cat']
@@ -44,24 +46,31 @@ spec:
     HELM_REPO    = "https://github.com/MaRo-Christmas/lesson-8-9-helm.git"
     HELM_FILE    = "charts/values.yaml"
 
-    // дефолти, щоб post не сипався
+    // дефолти (на випадок аборту до checkout)
     IMAGE_TAG    = "unknown"
     SHORT_SHA    = "unknown"
   }
 
   stages {
     stage('Checkout app repo') {
-  steps {
-    checkout scm
-    script {
-      def sha = (env.GIT_COMMIT ?: "unknown").take(8)
-      env.SHORT_SHA = sha
-      env.IMAGE_TAG = "build-${env.BUILD_NUMBER}-${sha}"
-      echo "GIT_COMMIT=${env.GIT_COMMIT}"
-      echo "Computed IMAGE_TAG=${env.IMAGE_TAG}"
+      steps {
+        checkout scm
+
+        script {
+          // Jenkins зазвичай сам ставить GIT_COMMIT після checkout
+          env.SHORT_SHA = (env.GIT_COMMIT ?: "unknown").take(8)
+
+          // якщо раптом GIT_COMMIT не виставився (рідко), пробуємо git-командою
+          if (env.SHORT_SHA == "unknown") {
+            env.SHORT_SHA = sh(script: "git rev-parse --short=8 HEAD", returnStdout: true).trim()
+          }
+
+          env.IMAGE_TAG = "build-${env.BUILD_NUMBER}-${env.SHORT_SHA}"
+          echo "GIT_COMMIT=${env.GIT_COMMIT}"
+          echo "Computed IMAGE_TAG=${env.IMAGE_TAG}"
+        }
+      }
     }
-  }
-}
 
     stage('Login to ECR (prepare docker config for Kaniko)') {
       steps {
@@ -110,8 +119,6 @@ EOF
     stage('Update Helm repo values.yaml (image.tag)') {
       steps {
         container('tools') {
-
-          // github-pat-helm = Username/Password (username: GitHub login, password: PAT)
           withCredentials([usernamePassword(
             credentialsId: 'github-pat-helm',
             usernameVariable: 'GITHUB_USER',
@@ -122,8 +129,6 @@ EOF
               apk add --no-cache git ca-certificates
 
               rm -rf helm-repo
-
-              # ВАЖЛИВО: використовуємо username з креденшалів, а не хардкод
               git clone "https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/MaRo-Christmas/lesson-8-9-helm.git" helm-repo
               cd helm-repo
 
