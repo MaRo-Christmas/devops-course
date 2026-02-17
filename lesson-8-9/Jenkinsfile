@@ -46,7 +46,6 @@ spec:
     HELM_REPO    = "https://github.com/MaRo-Christmas/lesson-8-9-helm.git"
     HELM_FILE    = "charts/values.yaml"
 
-    // дефолти (на випадок аборту до checkout)
     IMAGE_TAG    = "unknown"
     SHORT_SHA    = "unknown"
   }
@@ -66,7 +65,6 @@ spec:
     }
   }
 }
-
 
     stage('Login to ECR (prepare docker config for Kaniko)') {
       steps {
@@ -150,4 +148,3 @@ EOF
       echo "Updated Helm values: ${env.HELM_REPO} (${env.HELM_FILE})"
     }
   }
-}
