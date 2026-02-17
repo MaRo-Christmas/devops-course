@@ -51,19 +51,22 @@ spec:
     SHORT_SHA    = "unknown"
   }
 
-  stages {
-    stage('Checkout app repo') {
-      steps {
-        checkout scm
+  stage('Checkout app repo') {
+  steps {
+    checkout scm
 
-        script {
-  env.SHORT_SHA = (env.GIT_COMMIT ?: "unknown").take(8)
-  env.IMAGE_TAG = "build-${env.BUILD_NUMBER}-${env.SHORT_SHA}"
-  echo "GIT_COMMIT=${env.GIT_COMMIT}"
-  echo "Computed IMAGE_TAG=${env.IMAGE_TAG}"
-        }
-      }
+    script {
+      env.SHORT_SHA = sh(script: 'git rev-parse --short=8 HEAD', returnStdout: true).trim()
+      env.IMAGE_TAG = "build-${env.BUILD_NUMBER}-${env.SHORT_SHA}"
+
+
+      echo "GIT_COMMIT=${env.GIT_COMMIT}"
+      echo "SHORT_SHA=${env.SHORT_SHA}"
+      echo "Computed IMAGE_TAG=${env.IMAGE_TAG}"
     }
+  }
+}
+
 
     stage('Login to ECR (prepare docker config for Kaniko)') {
       steps {
