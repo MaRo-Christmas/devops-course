@@ -1,136 +1,222 @@
-# Lesson 7 — EKS + ECR + Helm (Django)
+# ДЗ-8-9 — Jenkins + Helm + Terraform + Argo CD (повний CI/CD для Django)
 
-У цьому проекті розгортається Kubernetes-кластер в AWS (EKS) у **вже існуючій VPC** з lesson-5, створюється ECR-репозиторій для Docker-образу та деплоїться Django застосунок через Helm.
+Цей проєкт реалізує повний CI/CD-процес у Kubernetes (EKS) з використанням Terraform, Jenkins, Helm і Argo CD:
 
-## Що створюється
+1. Jenkins автоматично збирає Docker-образ для Django-застосунку.
+2. Jenkins пушить образ в Amazon ECR.
+3. Jenkins оновлює Helm values у окремому Git-репозиторії (з новим тегом образу) і пушить зміни в `main`.
+4. Argo CD відстежує Helm-репозиторій і автоматично синхронізує зміни у кластері.
 
-- **ECR репозиторій** для Docker-образу Django
-- **EKS кластер** у VPC з lesson-5 (підтягуємо мережу через `terraform_remote_state`)
-- **Node Group** (керований) для воркер-нод
-- **Helm chart** для деплою Django:
-  - ConfigMap з env змінними
-  - Service типу LoadBalancer
-  - HPA (HorizontalPodAutoscaler) для масштабування за CPU
-- (Опційно) **metrics-server** для роботи HPA
+Гілка для здачі: `lesson-8-9`.
 
 ---
 
-## 1) Terraform: створити ECR + EKS
+## Репозиторії
+
+1. App repo (цей репозиторій)
+- Містить Django-застосунок, Dockerfile, Terraform та Jenkinsfile.
+- Jenkinsfile: `lesson-8-9/Jenkinsfile`
+
+2. Helm repo (окремий репозиторій)
+- Містить Helm chart і values, які оновлює Jenkins.
+- Repo: `lesson-8-9-helm`
+- Шлях чарта в helm repo: `charts/` (там знаходяться `Chart.yaml`, `values.yaml`, `templates/`)
+
+---
+
+## Структура проєкту (коротко)
+
+- `backend.tf` — S3 + DynamoDB backend для Terraform state
+- `main.tf` / `outputs.tf` — підключення модулів
+- `modules/`:
+  - `s3-backend/` — S3 bucket + DynamoDB lock
+  - `vpc/` — мережа
+  - `ecr/` — ECR repo для `django-app`
+  - `eks/` — EKS + node group + (за потреби) addons
+  - `jenkins/` — встановлення Jenkins через Helm (керується Terraform)
+  - `argo_cd/` — встановлення Argo CD через Helm (керується Terraform)
+- `charts/django-app/` — Helm chart (у цьому репо) для локальної перевірки/референсу
+- `lesson-8-9/Jenkinsfile` — pipeline для CI/CD
+
+---
+
+## Як застосувати Terraform
+
+### 1) Ініціалізація
+Переконайся, що налаштовані AWS креденшали (AWS CLI), і є доступ до AWS акаунту.
 
 ```bash
-cd lesson-7
 terraform init -reconfigure
 terraform plan
 terraform apply
 ```
 
-Перевір, що ноди піднялись:
+### 2) Підключити kubeconfig до EKS
+Назву кластера і регіон підставити зі своїх outputs/налаштувань.
+
 ```bash
-aws eks update-kubeconfig --region eu-central-1 --name lesson-7-eks
+aws eks update-kubeconfig --region eu-central-1 --name <EKS_CLUSTER_NAME>
 kubectl get nodes
 ```
 
 ---
 
-## 2) Docker: збірка та пуш образу в ECR
+## Jenkins: що налаштовано
 
-Логін в ECR:
-```bash
-aws ecr get-login-password --region eu-central-1 | docker login --username AWS --password-stdin 209578578085.dkr.ecr.eu-central-1.amazonaws.com
+### Jenkins встановлений у кластері через Helm (Terraform)
+Jenkins працює з Kubernetes Agent (pod), який містить контейнери:
+- `awscli` — логін в ECR, формування docker config для Kaniko
+- `kaniko` — збірка і пуш образу в ECR
+- `tools` — git clone/commit/push у helm repo
+- `jnlp` — службовий контейнер агента
+
+### Важливий момент про тег образу
+Тег формується в Jenkins як `build-${BUILD_NUMBER}-${SHORT_SHA}`.
+
+Щоб уникнути проблем із `env` у Jenkins Declarative pipeline, тег передається між стадіями через файл `.image_tag` у workspace (один і той самий тег використовується для ECR push і для оновлення Helm values).
+
+---
+
+## Як перевірити Jenkins job
+
+1) Jenkins Job має бути налаштований як `Pipeline script from SCM`:
+- Repo: цей repo
+- Branch: `lesson-8-9`
+- Script path: `lesson-8-9/Jenkinsfile`
+
+2) Запусти збірку вручну (Build Now) або тригером, якщо налаштовано.
+
+3) Артефакт для підтвердження:
+- лог збірки з коректним тегом, пушем у ECR і комітом у helm repo
+
+Для здачі додається файл:
+- `lesson-8-9/Console_Output_19.txt`
+
+---
+
+## Що саме робить pipeline (Jenkinsfile)
+
+Стадії:
+
+1. Checkout app repo
+- `checkout scm`
+- Обчислюється SHORT_SHA: `git rev-parse --short=8 HEAD`
+- Формується IMAGE_TAG: `build-${BUILD_NUMBER}-${SHORT_SHA}`
+- Запис в `.image_tag`
+
+2. Login to ECR
+- `aws ecr get-login-password`
+- Формується `/kaniko/.docker/config.json`
+
+3. Build & Push (Kaniko)
+- Збірка з Dockerfile
+- Пуш в ECR з тегом із `.image_tag`
+
+4. Update Helm repo values.yaml
+- Clone `lesson-8-9-helm`
+- Оновлення `charts/values.yaml` (поле `image.tag`)
+- `git commit` + `git push origin main`
+
+---
+
+## Argo CD: що має бути налаштовано
+
+### 1) Argo CD встановлений у кластері через Helm (Terraform)
+
+### 2) Підключення helm repo як Repository (read-only)
+У Argo CD доданий репозиторій `lesson-8-9-helm` з правами тільки на читання.
+
+### 3) Створення Argo CD Application
+Створюється Application, який дивиться на:
+- Repo URL: `lesson-8-9-helm`
+- Revision: `main`
+- Path: `charts`
+- Destination namespace: `django-app`
+- Sync policy: Auto (рекомендовано) + Prune + Self Heal
+- Опція: Create Namespace (або namespace створюється вручну)
+
+---
+
+## Як побачити результат в Argo CD
+
+1) В Argo CD у розділі Applications має бути застосунок `django-app`.
+
+2) Статуси:
+- Sync status: `Synced`
+- Health: `Healthy`
+
+3) У дереві ресурсів мають бути:
+- ConfigMap
+- Service
+- Deployment
+- ReplicaSet
+- Pod (Running)
+
+---
+
+## Перевірка в Kubernetes (kubectl)
+
+### 1) Namespace існує
+PowerShell:
+```powershell
+kubectl get ns | findstr django-app
 ```
 
-Збірка (приклад з тегом `v1`):
-```bash
-docker build -t django-app:v1 .
+### 2) Ресурси застосунку
+```powershell
+kubectl get all -n django-app
+kubectl get cm -n django-app
+kubectl get svc -n django-app
 ```
 
-Тег + пуш у ECR:
-```bash
-docker tag django-app:v1 209578578085.dkr.ecr.eu-central-1.amazonaws.com/django-app:v1
-docker push 209578578085.dkr.ecr.eu-central-1.amazonaws.com/django-app:v1
+### 3) Перевірка тегу образу, який реально запущений
+```powershell
+kubectl describe deploy django-app -n django-app
 ```
 
-Перевір, що тег зʼявився:
-```bash
-aws ecr describe-images --region eu-central-1 --repository-name django-app --query "imageDetails[].imageTags" --output json
+Додатково (точний вивід image):
+```powershell
+kubectl get deploy django-app -n django-app -o jsonpath="{..image}{'\n'}"
 ```
 
 ---
 
-## 3) Helm: деплой Django в кластер
+## Очікувані артефакти після успішного прогону
 
-Чарт знаходиться тут:
-- `charts/django-app`
+1) В ECR з’являється новий tag виду:
+- `build-<BUILD_NUMBER>-<SHORT_SHA>`
 
-### Варіант A (рекомендований): передати образ через `--set`
+2) У helm repo (`lesson-8-9-helm`) у `charts/values.yaml` оновлюється:
+- `image.tag: "build-<BUILD_NUMBER>-<SHORT_SHA>"`
 
-```bash
-helm lint .\charts\django-app
-helm upgrade --install django-app .\charts\django-app --namespace django --create-namespace ^
-  --set image.repository="209578578085.dkr.ecr.eu-central-1.amazonaws.com/django-app" ^
-  --set image.tag="v1"
-```
-
-Перевір:
-```bash
-kubectl get pods -n django
-kubectl get svc -n django
-kubectl describe svc -n django django-app
-```
-
-### Варіант B: прописати образ у `values.yaml`
-
-У `charts/django-app/values.yaml`:
-- `image.repository`
-- `image.tag`
-
-Після цього:
-```bash
-helm upgrade --install django-app .\charts\django-app --namespace django --create-namespace
-```
+3) Argo CD підхоплює commit з `main` helm repo і виконує sync.
 
 ---
 
-## 4) HPA та metrics-server
+## Безпека та ключі
 
-HPA потребує metrics API. Якщо `kubectl describe hpa` показує помилки типу `pods.metrics.k8s.io not found`, встанови metrics-server:
+Різні ключі для Jenkins і Argo CD є нормою:
 
-```bash
-kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
-```
-
-Перевір:
-```bash
-kubectl get pods -n kube-system | findstr /I metrics
-kubectl top nodes
-kubectl top pods -n django
-kubectl get hpa -n django
-kubectl describe hpa -n django django-app
-```
+- Argo CD: read-only доступ до репозиторію (тільки clone/pull)
+- Jenkins: read/write доступ до helm repo (commit/push у `main`)
 
 ---
 
-## Перевірка результату
+## Вимкнення ресурсів після перевірки (щоб уникнути витрат)
 
-1) Под(и) працюють:
+Після перевірки проєкту:
+
 ```bash
-kubectl get pods -n django -o wide
+terraform destroy
 ```
 
-2) Service має External endpoint (LoadBalancer):
-```bash
-kubectl get svc -n django
-```
-
-3) HPA активний і бачить метрики:
-```bash
-kubectl get hpa -n django
-kubectl describe hpa -n django django-app
-```
+Увага: якщо ви видаляєте всю інфраструктуру, також буде видалений S3 bucket і DynamoDB таблиця для Terraform state (залежить від реалізації). Пам’ятайте порядок підняття інфраструктури після повного видалення.
 
 ---
 
-## Нотатки
+## Файли для здачі
 
-- VPC та підмережі беруться з lesson-5. Для EKS воркери повинні бути у приватних підмережах з виходом через NAT, інакше ноди можуть “не приєднатися до кластера”.
-- Якщо `helm upgrade` падає через конфлікти/невідповідність labels або `containers: Required value`, перевір `templates/deployment.yaml` (labels + selector мають збігатися, і контейнер не може бути порожнім).
+1) Посилання на GitHub-репозиторій, гілка `lesson-8-9`.
+2) Архів `lesson-8-9_<ПІБ>.zip` (згідно вимог LMS).
+3) Цей `README.md`.
+4) Лог збірки: `lesson-8-9/Console_Output_19.txt`.

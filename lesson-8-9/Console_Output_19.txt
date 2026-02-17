@@ -1,0 +1,331 @@
+Started by user Jenkins Admin
+Obtained lesson-8-9/Jenkinsfile from git https://github.com/MaRo-Christmas/devops-course.git
+[Pipeline] Start of Pipeline
+[Pipeline] echo
+[WARNING] label option is deprecated. To use a static pod template, use the 'inheritFrom' option.
+[Pipeline] podTemplate
+[Pipeline] {
+[Pipeline] node
+Created Pod: kubernetes jenkins/kaniko-19-jq27l-3n39n
+[PodInfo] jenkins/kaniko-19-jq27l-3n39n
+	Container [awscli] waiting [ContainerCreating] No message
+	Container [jnlp] waiting [ContainerCreating] No message
+	Container [kaniko] waiting [ContainerCreating] No message
+	Container [tools] waiting [ContainerCreating] No message
+	Pod [Pending][ContainersNotReady] containers with unready status: [awscli kaniko tools jnlp]
+Agent kaniko-19-jq27l-3n39n is provisioned from template kaniko-19-jq27l
+---
+apiVersion: "v1"
+kind: "Pod"
+metadata:
+  annotations:
+    kubernetes.jenkins.io/last-refresh: "1771354124404"
+    buildUrl: "http://jenkins.jenkins.svc.cluster.local:8080/job/lesson-8-9-ci/19/"
+    runUrl: "job/lesson-8-9-ci/19/"
+  labels:
+    jenkins/jenkins-jenkins-agent: "true"
+    jenkins/label-digest: "04214dc4c09c6190b3225885104e6efd81522914"
+    jenkins/label: "kaniko-19"
+    kubernetes.jenkins.io/controller: "http___jenkins_jenkins_svc_cluster_local_8080x"
+  name: "kaniko-19-jq27l-3n39n"
+  namespace: "jenkins"
+spec:
+  containers:
+  - command:
+    - "sh"
+    - "-c"
+    - "cat"
+    image: "amazon/aws-cli:2.15.57"
+    name: "awscli"
+    tty: true
+    volumeMounts:
+    - mountPath: "/kaniko/.docker"
+      name: "docker-config"
+    - mountPath: "/home/jenkins/agent"
+      name: "workspace-volume"
+      readOnly: false
+  - command:
+    - "sh"
+    - "-c"
+    - "cat"
+    image: "gcr.io/kaniko-project/executor:debug"
+    name: "kaniko"
+    tty: true
+    volumeMounts:
+    - mountPath: "/kaniko/.docker"
+      name: "docker-config"
+    - mountPath: "/home/jenkins/agent"
+      name: "workspace-volume"
+      readOnly: false
+  - command:
+    - "sh"
+    - "-c"
+    - "cat"
+    image: "alpine:3.19"
+    name: "tools"
+    tty: true
+    volumeMounts:
+    - mountPath: "/home/jenkins/agent"
+      name: "workspace-volume"
+      readOnly: false
+  - env:
+    - name: "JENKINS_SECRET"
+      value: "********"
+    - name: "JENKINS_TUNNEL"
+      value: "jenkins-agent.jenkins.svc.cluster.local:50000"
+    - name: "JENKINS_AGENT_NAME"
+      value: "kaniko-19-jq27l-3n39n"
+    - name: "REMOTING_OPTS"
+      value: "-noReconnectAfter 1d"
+    - name: "JENKINS_NAME"
+      value: "kaniko-19-jq27l-3n39n"
+    - name: "JENKINS_AGENT_WORKDIR"
+      value: "/home/jenkins/agent"
+    - name: "JENKINS_URL"
+      value: "http://jenkins.jenkins.svc.cluster.local:8080/"
+    image: "jenkins/inbound-agent:3309.v27b_9314fd1a_4-1"
+    name: "jnlp"
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
+    volumeMounts:
+    - mountPath: "/home/jenkins/agent"
+      name: "workspace-volume"
+      readOnly: false
+  nodeSelector:
+    kubernetes.io/os: "linux"
+  restartPolicy: "Never"
+  serviceAccountName: "jenkins"
+  volumes:
+  - emptyDir: {}
+    name: "docker-config"
+  - emptyDir:
+      medium: ""
+    name: "workspace-volume"
+
+Running on kaniko-19-jq27l-3n39n in /home/jenkins/agent/workspace/lesson-8-9-ci
+[Pipeline] {
+[Pipeline] stage
+[Pipeline] { (Declarative: Checkout SCM)
+[Pipeline] checkout
+Selected Git installation does not exist. Using Default
+The recommended git tool is: NONE
+using credential github-pat-helm
+Cloning the remote Git repository
+Cloning repository https://github.com/MaRo-Christmas/devops-course.git
+ > git init /home/jenkins/agent/workspace/lesson-8-9-ci # timeout=10
+Fetching upstream changes from https://github.com/MaRo-Christmas/devops-course.git
+ > git --version # timeout=10
+ > git --version # 'git version 2.39.5'
+using GIT_ASKPASS to set credentials GitHub (для клон/пуш у helm repo)
+ > git fetch --tags --force --progress -- https://github.com/MaRo-Christmas/devops-course.git +refs/heads/*:refs/remotes/origin/* # timeout=10
+Avoid second fetch
+Checking out Revision e2e620ef4e4cfd427ec336a323269817eadf083b (origin/lesson-8-9)
+Commit message: "fix: deleting SHORT_SHA and IMAGE_TAG"
+ > git config remote.origin.url https://github.com/MaRo-Christmas/devops-course.git # timeout=10
+ > git config --add remote.origin.fetch +refs/heads/*:refs/remotes/origin/* # timeout=10
+ > git rev-parse origin/lesson-8-9^{commit} # timeout=10
+ > git config core.sparsecheckout # timeout=10
+ > git checkout -f e2e620ef4e4cfd427ec336a323269817eadf083b # timeout=10
+ > git rev-list --no-walk a17cac540ab608a0a1e065fcdb4df23815bfdfc2 # timeout=10
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] withEnv
+[Pipeline] {
+[Pipeline] withEnv
+[Pipeline] {
+[Pipeline] stage
+[Pipeline] { (Checkout app repo)
+[Pipeline] checkout
+Selected Git installation does not exist. Using Default
+The recommended git tool is: NONE
+using credential github-pat-helm
+Fetching changes from the remote Git repository
+Checking out Revision e2e620ef4e4cfd427ec336a323269817eadf083b (origin/lesson-8-9)
+Commit message: "fix: deleting SHORT_SHA and IMAGE_TAG"
+[Pipeline] script
+[Pipeline] {
+[Pipeline] sh
++ git rev-parse --short=8 HEAD
+[Pipeline] echo
+RAW_SHA=e2e620ef
+[Pipeline] echo
+SHORT_SHA=e2e620ef
+[Pipeline] echo
+Computed IMAGE_TAG=build-19-e2e620ef
+[Pipeline] }
+ > git rev-parse --resolve-git-dir /home/jenkins/agent/workspace/lesson-8-9-ci/.git # timeout=10
+ > git config remote.origin.url https://github.com/MaRo-Christmas/devops-course.git # timeout=10
+Fetching upstream changes from https://github.com/MaRo-Christmas/devops-course.git
+ > git --version # timeout=10
+ > git --version # 'git version 2.39.5'
+using GIT_ASKPASS to set credentials GitHub (для клон/пуш у helm repo)
+ > git fetch --tags --force --progress -- https://github.com/MaRo-Christmas/devops-course.git +refs/heads/*:refs/remotes/origin/* # timeout=10
+ > git rev-parse origin/lesson-8-9^{commit} # timeout=10
+ > git config core.sparsecheckout # timeout=10
+ > git checkout -f e2e620ef4e4cfd427ec336a323269817eadf083b # timeout=10
+[Pipeline] // script
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Login to ECR (prepare docker config for Kaniko))
+[Pipeline] container
+[Pipeline] {
+[Pipeline] withCredentials
+Masking supported pattern matches of $AWS_SECRET_ACCESS_KEY
+[Pipeline] {
+[Pipeline] sh
++ set -e
+++ aws ecr get-login-password --region eu-central-1
++ PASS=eyJwYXlsb2FkIjoic3Q1VHJqMWZJRm9kcXZacWVQV3pwR3diK2RuRW1iekhxb2c0Ujc5WXpza3BOYVA1dmJQMXZIYkZvdGU0RDV2bVhwNjloblc2SUdCNDBrVHVRaHJFamFNT2Q0SUcrYVUyczBuK0hOTU1sMUNWVmVITjVBU1hxVDlqL1phZWFvbHZIYVdMeGtSRUwwOGNNalp5NFZzejA2V08xYi9XanZJNzlqWTM1L0c3bTMyZjZWV3JMSnpzZmN6WkZjWHFNT0RZWXYzRFFFUXBhWFllZVk5NFNtOVE2KzRsRHNvbm42ZEVMYzh1eW1BVnhXaVJVMEQ5TFcrSFZDcHlQS2N4WmFXQkV6Vk04WlBtWUwvWUlVdkZjdUNnUkFXQitkaWZKRndTUVB3K0hrYVQ4blFaMmdMZjhiMmxob0ZqNVd5VEJCTDV1bTdpV3dMUFJBMFVNUFNWdmNIaWhWbSt1M0o4VXVaeFRIS3BiWWpEQmlaQkM0ZFp3NUk3SjUrT2xYL2c1MEVQdHUrM0NVYU5NT01IMkNNRjdqa0FHekhzSUwxbnYrSlFLTitXaERBR1RrZzJSdE9TaTR4NXFtS2JHdjF6R3RNQkZTV3VrQlJXR2JGcUNTdGtxbEpxRGJhVnJOS0NrMWg0bE1yL1dtTWFLYllTN05vZTZCcXZqU3hxL0JSQnhNVUtUeGZEZGNZMkNtdEdPdGIyeUU1SkxKbE0vbzlqUnY1VUtvOHY4SE9Ba2QwNXczNmM3WkxDVVdZazVDZ1JYdk1nRjNpRmMvc25EOXJ5M29HNXJJRTlzdGxPVHNPeWpFQXBRY21pUG9sR0NFemhFNjNFQXNOY0dIaHhERWtkL3pZeDBaQS9NcjhOaWxOby9CVDkvWGV5NGhSa3MrMm5kTEdJVENrWkwwUndoMUpRU1pmMWpFaXVVbzFuZExxMFpnVXNrcWpwYlZrUWJlaWkzVUd5aHhKU3I0eXJOcjg1SW9kbUFDVzNqS21INkdEV09sVjRLcUZ3NVZKWGNmMDNIT2RveUVkZHVyeG5FSFN6ZERKOWZrTmVaRXdnRjFHLzM0eUd6TWdHbGxtWXRlL1ZyZTRXUFphdnFRQWNZQlBNcUVGTzZZWnUvL3VnWDZVSS9McWtLZFNPRkpxeFpFbGtIRDdsZ1lXRE81Y2RtaXFHblVYUkNjTHJqalFMOVh1dkRFTTNUa2JBV3ZUT0wwNVAzR0NDUEMzK2o2ME83YWpkS1d5ekxnTUhlemp3MmN4Q1NlclE0Zm9iUnJiMU10a2oyY05IeEF5Y0dxREdQaTN6Z2NWYnpCeEsxdEx4cGFDdGw1UUJjMXlqYU85b1E2WllFY2NLRm9HcCtwSG5JWEp4WGlyeUtZMjhIZTloNTIySyt4OGhuT1IrWGRRPSIsImRhdGFrZXkiOiJBUUVCQUhoM3pZT2R0cEJCU1Z3L1kyYW44QlhJRDRrd0xRZm5vVGo1endadEdKWm9aUUFBQUg0d2ZBWUpLb1pJaHZjTkFRY0dvRzh3YlFJQkFEQm9CZ2txaGtpRzl3MEJCd0V3SGdZSllJWklBV1VEQkFFdU1CRUVESmFtWmZsZGJ5QndNQzdSL0FJQkVJQTdlRkJ0WUFaSEtvUHdDR1BIMzFSdUtmaW5jNlJNQWlZajFFU29yTXdjcWE3OHAybE5rVDd5UnYvRnIyWnY3TTlxN3I5QmlXdVNVWVdnYnlBPSIsInZlcnNpb24iOiIyIiwidHlwZSI6IkRBVEFfS0VZIiwiZXhwaXJhdGlvbiI6MTc3MTM5NzMzNX0=
+++ printf AWS:%s eyJwYXlsb2FkIjoic3Q1VHJqMWZJRm9kcXZacWVQV3pwR3diK2RuRW1iekhxb2c0Ujc5WXpza3BOYVA1dmJQMXZIYkZvdGU0RDV2bVhwNjloblc2SUdCNDBrVHVRaHJFamFNT2Q0SUcrYVUyczBuK0hOTU1sMUNWVmVITjVBU1hxVDlqL1phZWFvbHZIYVdMeGtSRUwwOGNNalp5NFZzejA2V08xYi9XanZJNzlqWTM1L0c3bTMyZjZWV3JMSnpzZmN6WkZjWHFNT0RZWXYzRFFFUXBhWFllZVk5NFNtOVE2KzRsRHNvbm42ZEVMYzh1eW1BVnhXaVJVMEQ5TFcrSFZDcHlQS2N4WmFXQkV6Vk04WlBtWUwvWUlVdkZjdUNnUkFXQitkaWZKRndTUVB3K0hrYVQ4blFaMmdMZjhiMmxob0ZqNVd5VEJCTDV1bTdpV3dMUFJBMFVNUFNWdmNIaWhWbSt1M0o4VXVaeFRIS3BiWWpEQmlaQkM0ZFp3NUk3SjUrT2xYL2c1MEVQdHUrM0NVYU5NT01IMkNNRjdqa0FHekhzSUwxbnYrSlFLTitXaERBR1RrZzJSdE9TaTR4NXFtS2JHdjF6R3RNQkZTV3VrQlJXR2JGcUNTdGtxbEpxRGJhVnJOS0NrMWg0bE1yL1dtTWFLYllTN05vZTZCcXZqU3hxL0JSQnhNVUtUeGZEZGNZMkNtdEdPdGIyeUU1SkxKbE0vbzlqUnY1VUtvOHY4SE9Ba2QwNXczNmM3WkxDVVdZazVDZ1JYdk1nRjNpRmMvc25EOXJ5M29HNXJJRTlzdGxPVHNPeWpFQXBRY21pUG9sR0NFemhFNjNFQXNOY0dIaHhERWtkL3pZeDBaQS9NcjhOaWxOby9CVDkvWGV5NGhSa3MrMm5kTEdJVENrWkwwUndoMUpRU1pmMWpFaXVVbzFuZExxMFpnVXNrcWpwYlZrUWJlaWkzVUd5aHhKU3I0eXJOcjg1SW9kbUFDVzNqS21INkdEV09sVjRLcUZ3NVZKWGNmMDNIT2RveUVkZHVyeG5FSFN6ZERKOWZrTmVaRXdnRjFHLzM0eUd6TWdHbGxtWXRlL1ZyZTRXUFphdnFRQWNZQlBNcUVGTzZZWnUvL3VnWDZVSS9McWtLZFNPRkpxeFpFbGtIRDdsZ1lXRE81Y2RtaXFHblVYUkNjTHJqalFMOVh1dkRFTTNUa2JBV3ZUT0wwNVAzR0NDUEMzK2o2ME83YWpkS1d5ekxnTUhlemp3MmN4Q1NlclE0Zm9iUnJiMU10a2oyY05IeEF5Y0dxREdQaTN6Z2NWYnpCeEsxdEx4cGFDdGw1UUJjMXlqYU85b1E2WllFY2NLRm9HcCtwSG5JWEp4WGlyeUtZMjhIZTloNTIySyt4OGhuT1IrWGRRPSIsImRhdGFrZXkiOiJBUUVCQUhoM3pZT2R0cEJCU1Z3L1kyYW44QlhJRDRrd0xRZm5vVGo1endadEdKWm9aUUFBQUg0d2ZBWUpLb1pJaHZjTkFRY0dvRzh3YlFJQkFEQm9CZ2txaGtpRzl3MEJCd0V3SGdZSllJWklBV1VEQkFFdU1CRUVESmFtWmZsZGJ5QndNQzdSL0FJQkVJQTdlRkJ0WUFaSEtvUHdDR1BIMzFSdUtmaW5jNlJNQWlZajFFU29yTXdjcWE3OHAybE5rVDd5UnYvRnIyWnY3TTlxN3I5QmlXdVNVWVdnYnlBPSIsInZlcnNpb24iOiIyIiwidHlwZSI6IkRBVEFfS0VZIiwiZXhwaXJhdGlvbiI6MTc3MTM5NzMzNX0=
+++ tr -d '\n'
+++ base64
++ AUTH=QVdTOmV5SndZWGxzYjJGa0lqb2ljM1ExVkhKcU1XWkpSbTlrY1haYWNXVlFWM3B3UjNkaUsyUnVSVzFpZWtoeGIyYzBVamM1V1hwemEzQk9ZVkExZG1KUU1YWklZa1p2ZEdVMFJEVjJiVmh3Tmpsb2JsYzJTVWRDTkRCclZIVlJhSEpGYW1GTlQyUTBTVWNyWVZVeWN6QnVLMGhPVFUxc01VTldWbVZJVGpWQlUxaHhWRGxxTDFwaFpXRnZiSFpJWVZkTWVHdFNSVXd3T0dOTmFscDVORlp6ZWpBMlYwOHhZaTlYYW5aSk56bHFXVE0xTDBjM2JUTXlaalpXVjNKTVNucHpabU42V2taaldIRk5UMFJaV1hZelJGRkZVWEJoV0ZsbFpWazVORk50T1ZFMkt6UnNSSE52Ym00MlpFVk1ZemgxZVcxQlZuaFhhVkpWTUVRNVRGY3JTRlpEY0hsUVMyTjRXbUZYUWtWNlZrMDRXbEJ0V1V3dldVbFZka1pqZFVOblVrRlhRaXRrYVdaS1JuZFRVVkIzSzBocllWUTRibEZhTW1kTVpqaGlNbXhvYjBacU5WZDVWRUpDVERWMWJUZHBWM2RNVUZKQk1GVk5VRk5XZG1OSWFXaFdiU3QxTTBvNFZYVmFlRlJJUzNCaVdXcEVRbWxhUWtNMFpGcDNOVWszU2pVclQyeFlMMmMxTUVWUWRIVXJNME5WWVU1TlQwMUlNa05OUmpkcWEwRkhla2h6U1V3eGJuWXJTbEZMVGl0WGFFUkJSMVJyWnpKU2RFOVRhVFI0TlhGdFMySkhkakY2UjNSTlFrWlRWM1ZyUWxKWFIySkdjVU5UZEd0eGJFcHhSR0poVm5KT1MwTnJNV2cwYkUxeUwxZHRUV0ZMWWxsVE4wNXZaVFpDY1hacVUzaHhMMEpTUW5oTlZVdFVlR1pFWkdOWk1rTnRkRWRQZEdJeWVVVTFTa3hLYkUwdmJ6bHFVblkxVlV0dk9IWTRTRTlCYTJRd05YY3pObU0zV2t4RFZWZFphelZEWjFKWWRrMW5Sak5wUm1NdmMyNUVPWEo1TTI5SE5YSkpSVGx6ZEd4UFZITlBlV3BGUVhCUlkyMXBVRzlzUjBORmVtaEZOak5GUVhOT1kwZElhSGhFUld0a0wzcFplREJhUVM5TmNqaE9hV3hPYnk5Q1ZEa3ZXR1Y1TkdoU2EzTXJNbTVrVEVkSlZFTnJXa3d3VW5kb01VcFJVMXBtTVdwRmFYVlZiekZ1WkV4eE1GcG5WWE5yY1dwd1lsWnJVV0psYVdrelZVZDVhSGhLVTNJMGVYSk9jamcxU1c5a2JVRkRWek5xUzIxSU5rZEVWMDlzVmpSTGNVWjNOVlpLV0dObU1ETklUMlJ2ZVVWa1pIVnllRzVGU0ZONlpFUktPV1pyVG1WYVJYZG5SakZITHpNMGVVZDZUV2RIYkd4dFdYUmxMMVp5WlRSWFVGcGhkbkZSUVdOWlFsQk5jVVZHVHpaWlduVXZMM1ZuV0RaVlNTOU1jV3RMWkZOUFJrcHhlRnBGYkd0SVJEZHNaMWxYUkU4MVkyUnRhWEZIYmxWWVVrTmpUSEpxYWxGTU9WaDFka1JGVFROVWEySkJWM1pVVDB3d05WQXpSME5EVUVNeksybzJNRTgzWVdwa1MxZDVla3huVFVobGVtcDNNbU40UTFObGNsRTBabTlpVW5KaU1VMTBhMm95WTA1SWVFRjVZMGR4UkVkUWFUTjZaMk5XWW5wQ2VFc3hkRXg0Y0dGRGRHdzFVVUpqTVhscVlVODViMUUyV2xsRlkyTkxSbTlIY0N0d1NHNUpXRXA0V0dseWVVdFpNamhJWlRsb05USXlTeXQ0T0dodVQxSXJXR1JSUFNJc0ltUmhkR0ZyWlhraU9pSkJVVVZDUVVob00zcFpUMlIwY0VKQ1UxWjNMMWt5WVc0NFFsaEpSRFJyZDB4UlptNXZWR28xZW5kYWRFZEtXbTlhVVVGQlFVZzBkMlpCV1VwTGIxcEphSFpqVGtGUlkwZHZSemgzWWxGSlFrRkVRbTlDWjJ0eGFHdHBSemwzTUVKQ2QwVjNTR2RaU2xsSldrbEJWMVZFUWtGRmRVMUNSVVZFU21GdFdtWnNaR0o1UW5kTlF6ZFNMMEZKUWtWSlFUZGxSa0owV1VGYVNFdHZVSGREUjFCSU16RlNkVXRtYVc1ak5sSk5RV2xaYWpGRlUyOXlUWGRqY1dFM09IQXliRTVyVkRkNVVuWXZSbkl5V25ZM1RUbHhOM0k1UW1sWGRWTlZXVmRuWW5sQlBTSXNJblpsY25OcGIyNGlPaUl5SWl3aWRIbHdaU0k2SWtSQlZFRmZTMFZaSWl3aVpYaHdhWEpoZEdsdmJpSTZNVGMzTVRNNU56TXpOWDA9
++ cat
++ echo 'Docker config for Kaniko prepared for 209578578085.dkr.ecr.eu-central-1.amazonaws.com'
+Docker config for Kaniko prepared for 209578578085.dkr.ecr.eu-central-1.amazonaws.com
+[Pipeline] }
+[Pipeline] // withCredentials
+[Pipeline] }
+[Pipeline] // container
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Build & Push image to ECR (Kaniko))
+[Pipeline] container
+[Pipeline] {
+[Pipeline] sh
++ set -e
++ echo 'Pushing image: 209578578085.dkr.ecr.eu-central-1.amazonaws.com/django-app:build-19-e2e620ef'
+Pushing image: 209578578085.dkr.ecr.eu-central-1.amazonaws.com/django-app:build-19-e2e620ef
++ /kaniko/executor --context /home/jenkins/agent/workspace/lesson-8-9-ci/lesson-8-9 --dockerfile /home/jenkins/agent/workspace/lesson-8-9-ci/lesson-8-9/Dockerfile --destination 209578578085.dkr.ecr.eu-central-1.amazonaws.com/django-app:build-19-e2e620ef
+[36mINFO[0m[0000] Using dockerignore file: /home/jenkins/agent/workspace/lesson-8-9-ci/lesson-8-9/.dockerignore 
+[36mINFO[0m[0000] Retrieving image manifest python:3.11-slim   
+[36mINFO[0m[0000] Retrieving image python:3.11-slim from registry index.docker.io 
+[36mINFO[0m[0001] Built cross stage deps: map[]                
+[36mINFO[0m[0001] Retrieving image manifest python:3.11-slim   
+[36mINFO[0m[0001] Returning cached image manifest              
+[36mINFO[0m[0001] Executing 0 build triggers                   
+[36mINFO[0m[0001] Building stage 'python:3.11-slim' [idx: '0', base-idx: '-1'] 
+[36mINFO[0m[0001] Unpacking rootfs as cmd COPY app/requirements.txt /app/requirements.txt requires it. 
+[36mINFO[0m[0005] ENV PYTHONDONTWRITEBYTECODE=1                
+[36mINFO[0m[0005] ENV PYTHONUNBUFFERED=1                       
+[36mINFO[0m[0005] WORKDIR /app                                 
+[36mINFO[0m[0005] Cmd: workdir                                 
+[36mINFO[0m[0005] Changed working directory to /app            
+[36mINFO[0m[0005] Creating directory /app with uid -1 and gid -1 
+[36mINFO[0m[0005] Taking snapshot of files...                  
+[36mINFO[0m[0005] COPY app/requirements.txt /app/requirements.txt 
+[36mINFO[0m[0005] Taking snapshot of files...                  
+[36mINFO[0m[0005] RUN pip install --no-cache-dir -r /app/requirements.txt 
+[36mINFO[0m[0005] Initializing snapshotter ...                 
+[36mINFO[0m[0005] Taking snapshot of full filesystem...        
+[36mINFO[0m[0006] Cmd: /bin/sh                                 
+[36mINFO[0m[0006] Args: [-c pip install --no-cache-dir -r /app/requirements.txt] 
+[36mINFO[0m[0006] Running: [/bin/sh -c pip install --no-cache-dir -r /app/requirements.txt] 
+Collecting Django==5.0.10 (from -r /app/requirements.txt (line 1))
+  Downloading Django-5.0.10-py3-none-any.whl.metadata (4.1 kB)
+Collecting gunicorn==22.0.0 (from -r /app/requirements.txt (line 2))
+  Downloading gunicorn-22.0.0-py3-none-any.whl.metadata (4.4 kB)
+Collecting asgiref<4,>=3.7.0 (from Django==5.0.10->-r /app/requirements.txt (line 1))
+  Downloading asgiref-3.11.1-py3-none-any.whl.metadata (9.3 kB)
+Collecting sqlparse>=0.3.1 (from Django==5.0.10->-r /app/requirements.txt (line 1))
+  Downloading sqlparse-0.5.5-py3-none-any.whl.metadata (4.7 kB)
+Collecting packaging (from gunicorn==22.0.0->-r /app/requirements.txt (line 2))
+  Downloading packaging-26.0-py3-none-any.whl.metadata (3.3 kB)
+Downloading Django-5.0.10-py3-none-any.whl (8.2 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 8.2/8.2 MB 79.1 MB/s eta 0:00:00
+Downloading gunicorn-22.0.0-py3-none-any.whl (84 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 84.4/84.4 kB 310.2 MB/s eta 0:00:00
+Downloading asgiref-3.11.1-py3-none-any.whl (24 kB)
+Downloading sqlparse-0.5.5-py3-none-any.whl (46 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 46.1/46.1 kB 219.2 MB/s eta 0:00:00
+Downloading packaging-26.0-py3-none-any.whl (74 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 74.4/74.4 kB 302.7 MB/s eta 0:00:00
+Installing collected packages: sqlparse, packaging, asgiref, gunicorn, Django
+Successfully installed Django-5.0.10 asgiref-3.11.1 gunicorn-22.0.0 packaging-26.0 sqlparse-0.5.5
+WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv
+
+[notice] A new release of pip is available: 24.0 -> 26.0.1
+[notice] To update, run: pip install --upgrade pip
+[36mINFO[0m[0011] Taking snapshot of full filesystem...        
+[36mINFO[0m[0013] COPY app/ /app/                              
+[36mINFO[0m[0013] Taking snapshot of files...                  
+[36mINFO[0m[0013] EXPOSE 8000                                  
+[36mINFO[0m[0013] Cmd: EXPOSE                                  
+[36mINFO[0m[0013] Adding exposed port: 8000/tcp                
+[36mINFO[0m[0013] CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000"] 
+[36mINFO[0m[0013] Pushing image to 209578578085.dkr.ecr.eu-central-1.amazonaws.com/django-app:build-19-e2e620ef 
+[36mINFO[0m[0015] Pushed 209578578085.dkr.ecr.eu-central-1.amazonaws.com/django-app@sha256:66f30f8e786a57c72f565b9986d793532bd7826dbc593e98c1120a5178071e45 
+[Pipeline] }
+[Pipeline] // container
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Update Helm repo values.yaml (image.tag))
+[Pipeline] container
+[Pipeline] {
+[Pipeline] withCredentials
+Masking supported pattern matches of $GITHUB_TOKEN
+[Pipeline] {
+[Pipeline] sh
++ set -e
++ apk add --no-cache git ca-certificates
+fetch https://dl-cdn.alpinelinux.org/alpine/v3.19/main/x86_64/APKINDEX.tar.gz
+fetch https://dl-cdn.alpinelinux.org/alpine/v3.19/community/x86_64/APKINDEX.tar.gz
+(1/11) Installing ca-certificates (20250911-r0)
+(2/11) Installing brotli-libs (1.1.0-r1)
+(3/11) Installing c-ares (1.27.0-r0)
+(4/11) Installing libunistring (1.1-r2)
+(5/11) Installing libidn2 (2.3.4-r4)
+(6/11) Installing nghttp2-libs (1.58.0-r0)
+(7/11) Installing libpsl (0.21.5-r0)
+(8/11) Installing libcurl (8.14.1-r2)
+(9/11) Installing libexpat (2.7.3-r0)
+(10/11) Installing pcre2 (10.42-r2)
+(11/11) Installing git (2.43.7-r0)
+Executing busybox-1.36.1-r20.trigger
+Executing ca-certificates-20250911-r0.trigger
+OK: 19 MiB in 26 packages
++ rm -rf helm-repo
++ git clone https://MaRo-Christmas:****@github.com/MaRo-Christmas/lesson-8-9-helm.git helm-repo
+Cloning into 'helm-repo'...
++ cd helm-repo
++ echo 'Updating charts/values.yaml -> image.tag=build-19-e2e620ef'
+Updating charts/values.yaml -> image.tag=build-19-e2e620ef
++ sed -i 's/^  tag:.*$/  tag: "build-19-e2e620ef"/' charts/values.yaml
++ git config user.email jenkins@local
++ git config user.name jenkins
++ git add charts/values.yaml
++ git commit -m 'chore: deploy build-19-e2e620ef'
+[main 0057e48] chore: deploy build-19-e2e620ef
+ 1 file changed, 1 insertion(+), 1 deletion(-)
++ git push origin main
+To https://github.com/MaRo-Christmas/lesson-8-9-helm.git
+   00f6de4..0057e48  main -> main
+[Pipeline] }
+[Pipeline] // withCredentials
+[Pipeline] }
+[Pipeline] // container
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Declarative: Post Actions)
+[Pipeline] echo
+Built & pushed: 209578578085.dkr.ecr.eu-central-1.amazonaws.com/django-app:build-19-e2e620ef
+[Pipeline] echo
+Updated Helm values: https://github.com/MaRo-Christmas/lesson-8-9-helm.git (charts/values.yaml)
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] }
+[Pipeline] // withEnv
+[Pipeline] }
+[Pipeline] // withEnv
+[Pipeline] }
+[Pipeline] // node
+[Pipeline] }
+[Pipeline] // podTemplate
+[Pipeline] End of Pipeline
+Finished: SUCCESS
