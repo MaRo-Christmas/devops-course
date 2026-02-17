@@ -46,7 +46,6 @@ spec:
     HELM_REPO    = "https://github.com/MaRo-Christmas/lesson-8-9-helm.git"
     HELM_FILE    = "charts/values.yaml"
 
-    // дефолти (на випадок аборту до checkout)
     IMAGE_TAG    = "unknown"
     SHORT_SHA    = "unknown"
   }
@@ -57,9 +56,9 @@ spec:
         checkout scm
 
         script {
-          // Надійно беремо sha з git, а не через env.GIT_COMMIT "магію"
-          env.SHORT_SHA = sh(script: 'git rev-parse --short=8 HEAD', returnStdout: true).trim()
-          env.IMAGE_TAG = "build-${env.BUILD_NUMBER}-${env.SHORT_SHA}"
+          def sha = sh(script: 'git rev-parse --short=8 HEAD', returnStdout: true).trim()
+          env.SHORT_SHA = sha
+          env.IMAGE_TAG = "build-${env.BUILD_NUMBER}-${sha}"
 
           echo "GIT_COMMIT=${env.GIT_COMMIT}"
           echo "SHORT_SHA=${env.SHORT_SHA}"
