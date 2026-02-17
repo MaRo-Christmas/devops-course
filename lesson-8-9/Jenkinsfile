@@ -53,10 +53,13 @@ spec:
         checkout scm
 
         script {
-          def tag = "build-${env.BUILD_NUMBER}-" + sh(script: 'git rev-parse --short=8 HEAD', returnStdout: true).trim()
-          writeFile file: '.image_tag', text: tag
-          echo "Computed IMAGE_TAG=${tag}"
+          def sha = sh(script: 'git rev-parse --short=8 HEAD', returnStdout: true).trim()
+          env.SHORT_SHA = sha
+          env.IMAGE_TAG = "build-${env.BUILD_NUMBER}-${sha}"
 
+          echo "RAW_SHA=${sha}"
+          echo "SHORT_SHA=${env.SHORT_SHA}"
+          echo "Computed IMAGE_TAG=${env.IMAGE_TAG}"
         }
       }
     }
@@ -94,13 +97,12 @@ EOF
         container('kaniko') {
           sh '''
             set -e
-            IMAGE_TAG="$(cat .image_tag)"
             echo "Pushing image: ${ECR_REPO}:${IMAGE_TAG}"
 
             /kaniko/executor \
-                --context "${WORKSPACE}/lesson-8-9" \
-                --dockerfile "${WORKSPACE}/lesson-8-9/Dockerfile" \
-                --destination "${ECR_REPO}:${IMAGE_TAG}"
+              --context "${WORKSPACE}/lesson-8-9" \
+              --dockerfile "${WORKSPACE}/lesson-8-9/Dockerfile" \
+              --destination "${ECR_REPO}:${IMAGE_TAG}"
           '''
         }
       }
@@ -116,13 +118,21 @@ EOF
           )]) {
             sh '''
               set -e
-              IMAGE_TAG="$(cat .image_tag)"
-              ...
+              apk add --no-cache git ca-certificates
+
+              rm -rf helm-repo
+              git clone "https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/MaRo-Christmas/lesson-8-9-helm.git" helm-repo
+              cd helm-repo
+
               echo "Updating ${HELM_FILE} -> image.tag=${IMAGE_TAG}"
               sed -i "s/^  tag:.*$/  tag: \\"${IMAGE_TAG}\\"/" "${HELM_FILE}"
-              ...
-              git commit -m "chore: deploy ${IMAGE_TAG}" || echo "No changes to commit"
 
+              git config user.email "jenkins@local"
+              git config user.name "jenkins"
+
+              git add "${HELM_FILE}"
+              git commit -m "chore: deploy ${IMAGE_TAG}" || echo "No changes to commit"
+              git push origin main
             '''
           }
         }
