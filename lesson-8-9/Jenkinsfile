@@ -60,7 +60,7 @@ spec:
           env.SHORT_SHA = sha
           env.IMAGE_TAG = "build-${env.BUILD_NUMBER}-${sha}"
 
-          echo "GIT_COMMIT=${env.GIT_COMMIT}"
+          echo "RAW_SHA=${sha}"
           echo "SHORT_SHA=${env.SHORT_SHA}"
           echo "Computed IMAGE_TAG=${env.IMAGE_TAG}"
         }
