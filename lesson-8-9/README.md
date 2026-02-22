@@ -156,19 +156,19 @@ module "rds" {
 ## 1) RDS instance (use_aurora=false)
 **RDS instance створено:** статус Available, engine PostgreSQL, instance class, region eu-central-1.
 
-![RDS instance available](./01-rds-instance-available.png)
+![RDS instance available](./screenshots/lesson-10/01-rds-instance-available.png)
 
 ## 2) RDS connectivity & security
 **Endpoint/port 5432, VPC/Subnet group, Security Group, Publicly accessible = No.**
 
-![RDS connectivity](./02-rds-connectivity-security.png)
+![RDS connectivity](./screenshots/lesson-10/02-rds-connectivity-security.png)
 
 ## 3) Aurora cluster (use_aurora=true)
 **Aurora cluster + writer instance:** статус Available.
 
-![Aurora cluster](./03-aurora-cluster-and-writer.png)
+![Aurora cluster](./screenshots/lesson-10/03-aurora-cluster-and-writer.png)
 
 ## 4) Aurora connectivity & security
 **Cluster endpoint/port, VPC/Subnet group, Security Group, Publicly accessible = No.**
 
-![Aurora connectivity](./04-aurora-connectivity-security.png)
+![Aurora connectivity](./screenshots/lesson-10/04-aurora-connectivity-security.png)
