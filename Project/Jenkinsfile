@@ -39,30 +39,69 @@ spec:
 
   environment {
     AWS_REGION   = "eu-central-1"
-
     ECR_REGISTRY = "209578578085.dkr.ecr.eu-central-1.amazonaws.com"
     ECR_REPO     = "209578578085.dkr.ecr.eu-central-1.amazonaws.com/django-app"
 
     HELM_REPO    = "https://github.com/MaRo-Christmas/lesson-8-9-helm.git"
     HELM_FILE    = "charts/values.yaml"
-
-    // Django app paths inside this repo
-    APP_CONTEXT  = "Project/Django"
-    DOCKERFILE   = "Project/Django/Dockerfile"
   }
 
   stages {
     stage('Checkout app repo') {
       steps {
         checkout scm
-
         script {
           def sha = sh(script: 'git rev-parse --short=8 HEAD', returnStdout: true).trim()
-          env.SHORT_SHA = sha
           env.IMAGE_TAG = "build-${env.BUILD_NUMBER}-${sha}"
-
-          echo "SHORT_SHA=${env.SHORT_SHA}"
           echo "Computed IMAGE_TAG=${env.IMAGE_TAG}"
+        }
+      }
+    }
+
+    stage('Detect Docker build paths') {
+      steps {
+        container('tools') {
+          sh '''
+            set -e
+            echo "Workspace root:"
+            pwd
+            echo "Top-level listing:"
+            ls -la
+
+            echo "Project/ listing (if exists):"
+            ls -la Project || true
+
+            # Prefer Project/Django if it exists, else Django at repo root
+            if [ -f "Project/Django/Dockerfile" ]; then
+              echo "Using Project/Django"
+              echo "APP_CONTEXT=Project/Django" > build.env
+              echo "DOCKERFILE=Project/Django/Dockerfile" >> build.env
+            elif [ -f "Django/Dockerfile" ]; then
+              echo "Using Django"
+              echo "APP_CONTEXT=Django" > build.env
+              echo "DOCKERFILE=Django/Dockerfile" >> build.env
+            else
+              echo "ERROR: Dockerfile not found in Project/Django or Django."
+              echo "Searched for:"
+              echo " - Project/Django/Dockerfile"
+              echo " - Django/Dockerfile"
+              echo "Available candidates:"
+              find . -maxdepth 4 -name Dockerfile -print || true
+              exit 1
+            fi
+
+            echo "Chosen build paths:"
+            cat build.env
+          '''
+        }
+        script {
+          def envFile = readFile('build.env').trim().split('\n')
+          envFile.each { line ->
+            def (k, v) = line.split('=', 2)
+            env."${k}" = v
+          }
+          echo "APP_CONTEXT=${env.APP_CONTEXT}"
+          echo "DOCKERFILE=${env.DOCKERFILE}"
         }
       }
     }
@@ -76,11 +115,8 @@ spec:
           ]) {
             sh '''
               set -e
-
-              echo "Verifying AWS identity..."
               aws sts get-caller-identity
 
-              echo "Preparing docker config for Kaniko..."
               PASS="$(aws ecr get-login-password --region ${AWS_REGION})"
               AUTH="$(printf "AWS:%s" "$PASS" | base64 | tr -d '\\n')"
 
@@ -104,14 +140,9 @@ EOF
         container('kaniko') {
           sh '''
             set -e
-
             echo "Build context: ${WORKSPACE}/${APP_CONTEXT}"
             echo "Dockerfile:     ${WORKSPACE}/${DOCKERFILE}"
-            ls -la "${WORKSPACE}/${APP_CONTEXT}" || true
-
-            echo "Pushing images:"
-            echo "  ${ECR_REPO}:${IMAGE_TAG}"
-            echo "  ${ECR_REPO}:latest"
+            ls -la "${WORKSPACE}/${APP_CONTEXT}"
 
             /kaniko/executor \
               --context "${WORKSPACE}/${APP_CONTEXT}" \
@@ -136,8 +167,7 @@ EOF
               apk add --no-cache git ca-certificates
 
               rm -rf helm-repo
-              # Use HELM_REPO variable, inject PAT safely
-              git clone "https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/${HELM_REPO#https://github.com/}" helm-repo
+              git clone "https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/MaRo-Christmas/lesson-8-9-helm.git" helm-repo
               cd helm-repo
 
               echo "Updating ${HELM_FILE} -> image.tag=${IMAGE_TAG}"
