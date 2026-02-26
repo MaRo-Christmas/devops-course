@@ -71,18 +71,25 @@ spec:
             echo "Project/ listing (if exists):"
             ls -la Project || true
 
-            # Prefer Project/Django if it exists, else Django at repo root
-            if [ -f "Project/Django/Dockerfile" ]; then
+            if [ -f "Project/Dockerfile" ]; then
+              echo "Using Project"
+              echo "APP_CONTEXT=Project" > build.env
+              echo "DOCKERFILE=Project/Dockerfile" >> build.env
+
+            elif [ -f "Project/Django/Dockerfile" ]; then
               echo "Using Project/Django"
               echo "APP_CONTEXT=Project/Django" > build.env
               echo "DOCKERFILE=Project/Django/Dockerfile" >> build.env
+
             elif [ -f "Django/Dockerfile" ]; then
               echo "Using Django"
               echo "APP_CONTEXT=Django" > build.env
               echo "DOCKERFILE=Django/Dockerfile" >> build.env
+
             else
-              echo "ERROR: Dockerfile not found in Project/Django or Django."
+              echo "ERROR: Dockerfile not found."
               echo "Searched for:"
+              echo " - Project/Dockerfile"
               echo " - Project/Django/Dockerfile"
               echo " - Django/Dockerfile"
               echo "Available candidates:"
