@@ -1,0 +1,149 @@
+pipeline {
+  agent {
+    kubernetes {
+      label "kaniko-${env.BUILD_NUMBER}"
+      defaultContainer 'jnlp'
+      yaml """
+apiVersion: v1
+kind: Pod
+spec:
+  serviceAccountName: jenkins
+  restartPolicy: Never
+  volumes:
+    - name: docker-config
+      emptyDir: {}
+  containers:
+    - name: awscli
+      image: amazon/aws-cli:2.15.57
+      command: ['sh', '-c', 'cat']
+      tty: true
+      volumeMounts:
+        - name: docker-config
+          mountPath: /kaniko/.docker
+
+    - name: kaniko
+      image: gcr.io/kaniko-project/executor:debug
+      command: ['sh', '-c', 'cat']
+      tty: true
+      volumeMounts:
+        - name: docker-config
+          mountPath: /kaniko/.docker
+
+    - name: tools
+      image: alpine:3.19
+      command: ['sh', '-c', 'cat']
+      tty: true
+"""
+    }
+  }
+
+  environment {
+    AWS_REGION   = "eu-central-1"
+
+    ECR_REGISTRY = "209578578085.dkr.ecr.eu-central-1.amazonaws.com"
+    ECR_REPO     = "209578578085.dkr.ecr.eu-central-1.amazonaws.com/django-app"
+
+    HELM_REPO    = "https://github.com/MaRo-Christmas/lesson-8-9-helm.git"
+    HELM_FILE    = "charts/values.yaml"
+  }
+
+  stages {
+    stage('Checkout app repo') {
+      steps {
+        checkout scm
+
+        script {
+          def sha = sh(script: 'git rev-parse --short=8 HEAD', returnStdout: true).trim()
+          env.SHORT_SHA = sha
+          env.IMAGE_TAG = "build-${env.BUILD_NUMBER}-${sha}"
+
+          echo "RAW_SHA=${sha}"
+          echo "SHORT_SHA=${env.SHORT_SHA}"
+          echo "Computed IMAGE_TAG=${env.IMAGE_TAG}"
+        }
+      }
+    }
+
+    stage('Login to ECR (prepare docker config for Kaniko)') {
+      steps {
+        container('awscli') {
+          withCredentials([usernamePassword(
+            credentialsId: 'aws-creds-ecr',
+            usernameVariable: 'AWS_ACCESS_KEY_ID',
+            passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+          )]) {
+            sh '''
+              set -e
+              PASS="$(aws ecr get-login-password --region ${AWS_REGION})"
+              AUTH="$(printf "AWS:%s" "$PASS" | base64 | tr -d '\\n')"
+
+              cat > /kaniko/.docker/config.json <<EOF
+              {
+                "auths": {
+                  "${ECR_REGISTRY}": { "auth": "${AUTH}" },
+                  "https://${ECR_REGISTRY}": { "auth": "${AUTH}" }
+                }
+              }
+EOF
+              echo "Docker config for Kaniko prepared for ${ECR_REGISTRY}"
+            '''
+          }
+        }
+      }
+    }
+
+    stage('Build & Push image to ECR (Kaniko)') {
+      steps {
+        container('kaniko') {
+          sh '''
+            set -e
+            echo "Pushing image: ${ECR_REPO}:${IMAGE_TAG}"
+
+            /kaniko/executor \
+              --context "${WORKSPACE}/lesson-8-9" \
+              --dockerfile "${WORKSPACE}/lesson-8-9/Dockerfile" \
+              --destination "${ECR_REPO}:${IMAGE_TAG}"
+          '''
+        }
+      }
+    }
+
+    stage('Update Helm repo values.yaml (image.tag)') {
+      steps {
+        container('tools') {
+          withCredentials([usernamePassword(
+            credentialsId: 'github-pat-helm',
+            usernameVariable: 'GITHUB_USER',
+            passwordVariable: 'GITHUB_TOKEN'
+          )]) {
+            sh '''
+              set -e
+              apk add --no-cache git ca-certificates
+
+              rm -rf helm-repo
+              git clone "https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/MaRo-Christmas/lesson-8-9-helm.git" helm-repo
+              cd helm-repo
+
+              echo "Updating ${HELM_FILE} -> image.tag=${IMAGE_TAG}"
+              sed -i "s/^  tag:.*$/  tag: \\"${IMAGE_TAG}\\"/" "${HELM_FILE}"
+
+              git config user.email "jenkins@local"
+              git config user.name "jenkins"
+
+              git add "${HELM_FILE}"
+              git commit -m "chore: deploy ${IMAGE_TAG}" || echo "No changes to commit"
+              git push origin main
+            '''
+          }
+        }
+      }
+    }
+  }
+
+  post {
+    always {
+      echo "Built & pushed: ${env.ECR_REPO}:${env.IMAGE_TAG}"
+      echo "Updated Helm values: ${env.HELM_REPO} (${env.HELM_FILE})"
+    }
+  }
+}

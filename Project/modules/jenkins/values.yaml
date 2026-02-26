@@ -1,0 +1,9 @@
+controller:
+  serviceType: ClusterIP
+  installPlugins:
+    - kubernetes
+    - workflow-aggregator
+    - git
+    - configuration-as-code
+  admin:
+    username: admin
