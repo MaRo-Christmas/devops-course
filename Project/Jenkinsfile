@@ -45,6 +45,10 @@ spec:
 
     HELM_REPO    = "https://github.com/MaRo-Christmas/lesson-8-9-helm.git"
     HELM_FILE    = "charts/values.yaml"
+
+    // Django app paths inside this repo
+    APP_CONTEXT  = "Project/Django"
+    DOCKERFILE   = "Project/Django/Dockerfile"
   }
 
   stages {
@@ -57,7 +61,6 @@ spec:
           env.SHORT_SHA = sha
           env.IMAGE_TAG = "build-${env.BUILD_NUMBER}-${sha}"
 
-          echo "RAW_SHA=${sha}"
           echo "SHORT_SHA=${env.SHORT_SHA}"
           echo "Computed IMAGE_TAG=${env.IMAGE_TAG}"
         }
@@ -67,13 +70,17 @@ spec:
     stage('Login to ECR (prepare docker config for Kaniko)') {
       steps {
         container('awscli') {
-          withCredentials([usernamePassword(
-            credentialsId: 'aws-creds-ecr',
-            usernameVariable: 'AWS_ACCESS_KEY_ID',
-            passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-          )]) {
+          withCredentials([
+            string(credentialsId: 'aws_access_key_id', variable: 'AWS_ACCESS_KEY_ID'),
+            string(credentialsId: 'aws_secret_access_key', variable: 'AWS_SECRET_ACCESS_KEY')
+          ]) {
             sh '''
               set -e
+
+              echo "Verifying AWS identity..."
+              aws sts get-caller-identity
+
+              echo "Preparing docker config for Kaniko..."
               PASS="$(aws ecr get-login-password --region ${AWS_REGION})"
               AUTH="$(printf "AWS:%s" "$PASS" | base64 | tr -d '\\n')"
 
@@ -85,7 +92,7 @@ spec:
                 }
               }
 EOF
-              echo "Docker config for Kaniko prepared for ${ECR_REGISTRY}"
+              echo "Docker config prepared for ${ECR_REGISTRY}"
             '''
           }
         }
@@ -97,12 +104,20 @@ EOF
         container('kaniko') {
           sh '''
             set -e
-            echo "Pushing image: ${ECR_REPO}:${IMAGE_TAG}"
+
+            echo "Build context: ${WORKSPACE}/${APP_CONTEXT}"
+            echo "Dockerfile:     ${WORKSPACE}/${DOCKERFILE}"
+            ls -la "${WORKSPACE}/${APP_CONTEXT}" || true
+
+            echo "Pushing images:"
+            echo "  ${ECR_REPO}:${IMAGE_TAG}"
+            echo "  ${ECR_REPO}:latest"
 
             /kaniko/executor \
-              --context "${WORKSPACE}/lesson-8-9" \
-              --dockerfile "${WORKSPACE}/lesson-8-9/Dockerfile" \
-              --destination "${ECR_REPO}:${IMAGE_TAG}"
+              --context "${WORKSPACE}/${APP_CONTEXT}" \
+              --dockerfile "${WORKSPACE}/${DOCKERFILE}" \
+              --destination "${ECR_REPO}:${IMAGE_TAG}" \
+              --destination "${ECR_REPO}:latest"
           '''
         }
       }
@@ -121,7 +136,8 @@ EOF
               apk add --no-cache git ca-certificates
 
               rm -rf helm-repo
-              git clone "https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/MaRo-Christmas/lesson-8-9-helm.git" helm-repo
+              # Use HELM_REPO variable, inject PAT safely
+              git clone "https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/${HELM_REPO#https://github.com/}" helm-repo
               cd helm-repo
 
               echo "Updating ${HELM_FILE} -> image.tag=${IMAGE_TAG}"
