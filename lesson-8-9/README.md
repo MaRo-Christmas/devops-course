@@ -132,43 +132,10 @@ module "rds" {
 - `subnet_group_name` – назва DB Subnet Group
 - `security_group_id` – ID DB Security Group
 - `db_port` – порт БД
-- `rds_instance_endpoint` / `rds_instance_address` — якщо `use_aurora = false` (звичайний RDS instance)
-- `aurora_cluster_endpoint` / `aurora_reader_endpoint` — якщо `use_aurora = true` (Aurora cluster)
-
-> Примітка про engine для Aurora: у виклику модуля ви задаєте `engine = "postgres"` або `engine = "mysql"`,
-> а всередині модуля для Aurora це автоматично мапиться на `aurora-postgresql` або `aurora-mysql`.
-
-### Engine version та parameter group family
-
-`engine_version` має відповідати `parameter_group_family`.
-
-Приклади:
-- RDS PostgreSQL 17: `engine="postgres"`, `engine_version="17"`, `parameter_group_family="postgres17"`
-- Aurora PostgreSQL 17: `engine="postgres"`, `engine_version="17"`, `parameter_group_family="aurora-postgresql17"`
+- `rds_instance_endpoint` / `rds_instance_address` – якщо `use_aurora = false`
+- `aurora_cluster_endpoint` / `aurora_reader_endpoint` – якщо `use_aurora = true`
 
 ## Важливо про витрати
 
 Після перевірки коду видаляйте ресурси командою `terraform destroy`.
 Якщо S3 bucket + DynamoDB table для Terraform backend створюються через Terraform, видалення всієї інфраструктури може прибрати й backend ресурси, через що наступний `terraform init` не знайде state.
-
-# Lesson 10 screenshots
-
-## 1) RDS instance (use_aurora=false)
-**RDS instance створено:** статус Available, engine PostgreSQL, instance class, region eu-central-1.
-
-![RDS instance available](./screenshots/lesson-10/01-rds-instance-available.png)
-
-## 2) RDS connectivity & security
-**Endpoint/port 5432, VPC/Subnet group, Security Group, Publicly accessible = No.**
-
-![RDS connectivity](./screenshots/lesson-10/02-rds-connectivity-security.png)
-
-## 3) Aurora cluster (use_aurora=true)
-**Aurora cluster + writer instance:** статус Available.
-
-![Aurora cluster](./screenshots/lesson-10/03-aurora-cluster-and-writer.png)
-
-## 4) Aurora connectivity & security
-**Cluster endpoint/port, VPC/Subnet group, Security Group, Publicly accessible = No.**
-
-![Aurora connectivity](./screenshots/lesson-10/04-aurora-connectivity-security.png)
