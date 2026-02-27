@@ -43,7 +43,6 @@ spec:
     ECR_REGISTRY = "209578578085.dkr.ecr.eu-central-1.amazonaws.com"
     ECR_REPO     = "209578578085.dkr.ecr.eu-central-1.amazonaws.com/django-app"
 
-    // де лежить values.yaml з image.tag у фінальному репо
     VALUES_FILE  = "Project/charts/django-app/values.yaml"
   }
 
@@ -168,7 +167,6 @@ EOF
               set -e
               apk add --no-cache git ca-certificates
 
-              # Jenkins часто робить checkout у detached HEAD, тому явно створюємо/оновлюємо local branch final-project
               git checkout -B final-project
 
               # Перевірка що файл існує. Якщо ні, покажемо що є у charts.
@@ -181,8 +179,6 @@ EOF
 
               echo "Updating ${VALUES_FILE} -> image.tag=${IMAGE_TAG}"
 
-              # Дуже базово, але працює: замінюємо перший рядок з 'tag:' (з відступами)
-              # Якщо у тебе інша структура values.yaml, тоді підлаштуємо sed під фактичний файл.
               sed -i "0,/^[[:space:]]*tag:[[:space:]]*/s//  tag: \\"${IMAGE_TAG}\\"/" "${VALUES_FILE}"
 
               echo "Result preview:"
@@ -194,7 +190,6 @@ EOF
               git add "${VALUES_FILE}"
               git commit -m "chore: deploy ${IMAGE_TAG}" || echo "No changes to commit"
 
-              # Пушимо в цей же репозиторій devops-course у гілку final-project через PAT
               git remote set-url origin "https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/MaRo-Christmas/devops-course.git"
               git push origin final-project
             '''
