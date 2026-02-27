@@ -166,10 +166,9 @@ EOF
             sh '''
               set -e
               apk add --no-cache git ca-certificates
-
+              git config --global --add safe.directory '*'
               git checkout -B final-project
 
-              # Перевірка що файл існує. Якщо ні, покажемо що є у charts.
               if [ ! -f "${VALUES_FILE}" ]; then
                 echo "ERROR: ${VALUES_FILE} not found."
                 echo "Available values.yaml under Project/charts:"
