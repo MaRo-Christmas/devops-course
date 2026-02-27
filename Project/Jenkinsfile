@@ -39,15 +39,16 @@ spec:
 
   environment {
     AWS_REGION   = "eu-central-1"
+
     ECR_REGISTRY = "209578578085.dkr.ecr.eu-central-1.amazonaws.com"
     ECR_REPO     = "209578578085.dkr.ecr.eu-central-1.amazonaws.com/django-app"
 
-    HELM_REPO    = "https://github.com/MaRo-Christmas/lesson-8-9-helm.git"
-    HELM_FILE    = "charts/values.yaml"
+    // де лежить values.yaml з image.tag у фінальному репо
+    VALUES_FILE  = "Project/charts/django-app/values.yaml"
   }
 
   stages {
-    stage('Checkout app repo') {
+    stage('Checkout repo') {
       steps {
         checkout scm
         script {
@@ -63,8 +64,6 @@ spec:
         container('tools') {
           sh '''
             set -e
-            echo "Workspace root:"
-            pwd
             echo "Top-level listing:"
             ls -la
 
@@ -75,24 +74,16 @@ spec:
               echo "Using Project"
               echo "APP_CONTEXT=Project" > build.env
               echo "DOCKERFILE=Project/Dockerfile" >> build.env
-
             elif [ -f "Project/Django/Dockerfile" ]; then
               echo "Using Project/Django"
               echo "APP_CONTEXT=Project/Django" > build.env
               echo "DOCKERFILE=Project/Django/Dockerfile" >> build.env
-
             elif [ -f "Django/Dockerfile" ]; then
               echo "Using Django"
               echo "APP_CONTEXT=Django" > build.env
               echo "DOCKERFILE=Django/Dockerfile" >> build.env
-
             else
               echo "ERROR: Dockerfile not found."
-              echo "Searched for:"
-              echo " - Project/Dockerfile"
-              echo " - Project/Django/Dockerfile"
-              echo " - Django/Dockerfile"
-              echo "Available candidates:"
               find . -maxdepth 4 -name Dockerfile -print || true
               exit 1
             fi
@@ -151,6 +142,10 @@ EOF
             echo "Dockerfile:     ${WORKSPACE}/${DOCKERFILE}"
             ls -la "${WORKSPACE}/${APP_CONTEXT}"
 
+            echo "Pushing:"
+            echo "  ${ECR_REPO}:${IMAGE_TAG}"
+            echo "  ${ECR_REPO}:latest"
+
             /kaniko/executor \
               --context "${WORKSPACE}/${APP_CONTEXT}" \
               --dockerfile "${WORKSPACE}/${DOCKERFILE}" \
@@ -161,11 +156,11 @@ EOF
       }
     }
 
-    stage('Update Helm repo values.yaml (image.tag)') {
+    stage('Update values.yaml in this repo (image.tag) and push to final-project') {
       steps {
         container('tools') {
           withCredentials([usernamePassword(
-            credentialsId: 'github-pat-helm',
+            credentialsId: 'github-pat-devops-course',
             usernameVariable: 'GITHUB_USER',
             passwordVariable: 'GITHUB_TOKEN'
           )]) {
@@ -173,19 +168,35 @@ EOF
               set -e
               apk add --no-cache git ca-certificates
 
-              rm -rf helm-repo
-              git clone "https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/MaRo-Christmas/lesson-8-9-helm.git" helm-repo
-              cd helm-repo
+              # Jenkins часто робить checkout у detached HEAD, тому явно створюємо/оновлюємо local branch final-project
+              git checkout -B final-project
 
-              echo "Updating ${HELM_FILE} -> image.tag=${IMAGE_TAG}"
-              sed -i "s/^  tag:.*$/  tag: \\"${IMAGE_TAG}\\"/" "${HELM_FILE}"
+              # Перевірка що файл існує. Якщо ні, покажемо що є у charts.
+              if [ ! -f "${VALUES_FILE}" ]; then
+                echo "ERROR: ${VALUES_FILE} not found."
+                echo "Available values.yaml under Project/charts:"
+                find Project/charts -maxdepth 4 -name values.yaml -print || true
+                exit 1
+              fi
+
+              echo "Updating ${VALUES_FILE} -> image.tag=${IMAGE_TAG}"
+
+              # Дуже базово, але працює: замінюємо перший рядок з 'tag:' (з відступами)
+              # Якщо у тебе інша структура values.yaml, тоді підлаштуємо sed під фактичний файл.
+              sed -i "0,/^[[:space:]]*tag:[[:space:]]*/s//  tag: \\"${IMAGE_TAG}\\"/" "${VALUES_FILE}"
+
+              echo "Result preview:"
+              grep -n "repository:\\|tag:" "${VALUES_FILE}" || true
 
               git config user.email "jenkins@local"
               git config user.name "jenkins"
 
-              git add "${HELM_FILE}"
+              git add "${VALUES_FILE}"
               git commit -m "chore: deploy ${IMAGE_TAG}" || echo "No changes to commit"
-              git push origin main
+
+              # Пушимо в цей же репозиторій devops-course у гілку final-project через PAT
+              git remote set-url origin "https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/MaRo-Christmas/devops-course.git"
+              git push origin final-project
             '''
           }
         }
@@ -196,7 +207,7 @@ EOF
   post {
     always {
       echo "Built & pushed: ${env.ECR_REPO}:${env.IMAGE_TAG}"
-      echo "Updated Helm values: ${env.HELM_REPO} (${env.HELM_FILE})"
+      echo "Updated values file: ${env.VALUES_FILE}"
     }
   }
 }
