@@ -178,11 +178,13 @@ EOF
 
               echo "Updating ${VALUES_FILE} -> image.tag=${IMAGE_TAG}"
 
-              sed -i "0,/^[[:space:]]*tag:[[:space:]]*/s//  tag: \\"${IMAGE_TAG}\\"/" "${VALUES_FILE}"
+              sed -i 's/^[[:space:]]*tag:.*$/  tag: "'"${IMAGE_TAG}"'"/' "${VALUES_FILE}"
 
               echo "Result preview:"
               grep -n "repository:\\|tag:" "${VALUES_FILE}" || true
 
+              rm -f build.env
+              
               git config user.email "jenkins@local"
               git config user.name "jenkins"
 
